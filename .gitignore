@@ -6,6 +6,7 @@ coverage
 .tmp
 *.tgz
 native/vendor/codex-rs/target
+native/sandbox-host/target
 packages/*/dist
 packages/*/native
 examples/*/dist

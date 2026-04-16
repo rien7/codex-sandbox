@@ -6,11 +6,14 @@ This directory contains the native side of `codex-sandbox`.
 
 ```text
 native/
+  sandbox-host/
   vendor/
     codex-rs/
 ```
 
-`vendor/codex-rs/` is a curated source subset copied out of Codex. It includes the host binary source, shell-escalation code, and the internal crates needed to build them.
+`sandbox-host/` contains the standalone native host crate used by this repo.
+
+`vendor/codex-rs/` is a curated source subset copied out of Codex. It now exists to build the shell-escalation wrapper and keep the bridge assets aligned with upstream Codex code.
 
 ## Build
 
@@ -20,7 +23,7 @@ From the repo root:
 pnpm run build:native
 ```
 
-That runs cargo builds against `native/vendor/codex-rs/Cargo.toml`.
+That builds the host from `native/sandbox-host/Cargo.toml` and the exec wrapper from `native/vendor/codex-rs/Cargo.toml`.
 
 ## Bridge assets
 
@@ -30,4 +33,3 @@ To package the bridge, provide one of:
 
 - `CODEX_SANDBOX_ZSH_BINARY`
 - `CODEX_SANDBOX_ZSH_TARBALL`
-

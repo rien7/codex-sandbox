@@ -39,6 +39,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
+            native/sandbox-host -> target
             native/vendor/codex-rs -> target
           shared-key: native-${{ runner.os }}-v1
           cache-workspace-crates: true
@@ -57,7 +58,7 @@ jobs:
         run: pnpm test
 
       - name: Verify native host compiles
-        run: cargo check --manifest-path native/vendor/codex-rs/Cargo.toml -p codex-core --bin elara-unified-exec-host
+        run: cargo check --manifest-path native/sandbox-host/Cargo.toml --bin sandbox-unified-exec-host
 
       - name: Verify execve wrapper compiles
         run: cargo check --manifest-path native/vendor/codex-rs/Cargo.toml -p codex-shell-escalation --bin codex-execve-wrapper

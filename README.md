@@ -5,10 +5,12 @@
 It contains three main layers:
 
 1. `native/vendor/codex-rs/`
-   A curated source subtree with the native host and shell-escalation code that this repo builds from.
-2. `packages/codex-sandbox-adapter/`
+   A curated source subtree with the shell-escalation wrapper code and vendored native support crates.
+2. `native/sandbox-host/`
+   A standalone native sandbox host crate that implements the stdio JSON-RPC surface without depending on `codex-core`.
+3. `packages/codex-sandbox-adapter/`
    A publishable TypeScript package that talks to the native host over stdio JSON-RPC and ships packaged binaries.
-3. `packages/codex-sandbox-cli/`
+4. `packages/codex-sandbox-cli/`
    A CLI for testing the sandbox flow with inline approval prompts.
 
 It also includes:
@@ -30,7 +32,7 @@ pnpm run build
 
 `pnpm run build` does three things:
 
-1. builds the native host and execve wrapper from `native/vendor/codex-rs`
+1. builds the standalone native host from `native/sandbox-host` and the execve wrapper from `native/vendor/codex-rs`
 2. copies the built binaries into the adapter package
 3. builds the TypeScript adapter, CLI, and example
 

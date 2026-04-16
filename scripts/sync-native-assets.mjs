@@ -40,9 +40,9 @@ function resolveHostBinary() {
   const envBinary = readEnvPath('CODEX_SANDBOX_HOST_BINARY')
   return (
     envBinary
-    || resolveRepoBinary(['native', 'vendor', 'codex-rs', 'target', 'release', 'elara-unified-exec-host'])
+    || resolveRepoBinary(['native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host'])
     || resolveSystemBinary('codex-sandbox-host')
-    || resolveSystemBinary('elara-unified-exec-host')
+    || resolveSystemBinary('sandbox-unified-exec-host')
   )
 }
 

@@ -1240,23 +1240,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-arg0"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "codex-apply-patch",
- "codex-exec-server",
- "codex-linux-sandbox",
- "codex-sandboxing",
- "codex-shell-escalation",
- "codex-utils-absolute-path",
- "codex-utils-home-dir",
- "dotenvy",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "codex-async-utils"
 version = "0.0.0"
 dependencies = [
@@ -1638,24 +1621,6 @@ version = "0.0.0"
 dependencies = [
  "keyring",
  "tracing",
-]
-
-[[package]]
-name = "codex-linux-sandbox"
-version = "0.0.0"
-dependencies = [
- "cc",
- "clap",
- "codex-protocol",
- "codex-sandboxing",
- "codex-utils-absolute-path",
- "landlock",
- "libc",
- "pkg-config",
- "seccompiler",
- "serde",
- "serde_json",
- "url",
 ]
 
 [[package]]

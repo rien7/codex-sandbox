@@ -40,6 +40,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
+            native/sandbox-host -> target
             native/vendor/codex-rs -> target
           shared-key: native-${{ runner.os }}-v1
           cache-workspace-crates: true

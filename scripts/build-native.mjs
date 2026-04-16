@@ -18,9 +18,8 @@ if (!cargo) {
 
 buildBinary({
   cargo,
-  manifestPath: resolve(VENDOR_CODEX_RS_DIR, 'Cargo.toml'),
-  packageName: 'codex-core',
-  binaryName: 'elara-unified-exec-host',
+  manifestPath: resolve(ROOT_DIR, 'native', 'sandbox-host', 'Cargo.toml'),
+  binaryName: 'sandbox-unified-exec-host',
 })
 
 buildBinary({
@@ -31,16 +30,19 @@ buildBinary({
 })
 
 function buildBinary({ cargo, manifestPath, packageName, binaryName }) {
-  execFileSync(cargo, [
+  const args = [
     'build',
     '--manifest-path',
     manifestPath,
-    '-p',
-    packageName,
-    '--bin',
-    binaryName,
-    '--release',
-  ], {
+  ]
+
+  if (packageName) {
+    args.push('-p', packageName)
+  }
+
+  args.push('--bin', binaryName, '--release')
+
+  execFileSync(cargo, args, {
     cwd: ROOT_DIR,
     stdio: 'inherit',
   })
@@ -65,4 +67,3 @@ function resolveSystemBinary(binaryName) {
 
   return undefined
 }
-

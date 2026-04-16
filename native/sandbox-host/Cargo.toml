@@ -1,0 +1,17 @@
+[package]
+name = "codex-sandbox-host"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[[bin]]
+name = "sandbox-unified-exec-host"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+codex-shell-command = { path = "../vendor/codex-rs/shell-command" }
+codex-utils-pty = { path = "../vendor/codex-rs/utils/pty" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }

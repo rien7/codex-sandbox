@@ -73,17 +73,16 @@ export function resolveNativeHostBinary(options: {
   const cwd = options.cwd ?? process.cwd()
   const envPath = env.CODEX_SANDBOX_HOST_BINARY
     ?? env.CODEX_SHELL_HOST_BINARY
-    ?? env.ELARA_CODEX_BINARY
     ?? env.SHELL_CODEX_BINARY
   const systemCandidate = resolveSystemBinary(env, 'codex-sandbox-host')
-    ?? resolveSystemBinary(env, 'elara-unified-exec-host')
+    ?? resolveSystemBinary(env, 'sandbox-unified-exec-host')
   const candidates = resolveAssetCandidates({
     assetName: 'codex-sandbox-host',
     ...(options.explicitPath ? { explicitPath: options.explicitPath } : {}),
     ...(envPath ? { envPath } : {}),
     cwd,
     repoBuildCandidates: [
-      resolve(cwd, 'native', 'vendor', 'codex-rs', 'target', 'release', 'elara-unified-exec-host'),
+      resolve(cwd, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host'),
     ],
     ...(systemCandidate ? { systemCandidate } : {}),
   })
@@ -104,7 +103,6 @@ export function resolveNativeShellBridge(options: {
   const siblingDir = options.hostBinaryPath ? dirname(options.hostBinaryPath) : undefined
   const zshEnvPath = env.CODEX_SANDBOX_ZSH_BINARY
     ?? env.CODEX_SHELL_ZSH_BINARY
-    ?? env.ELARA_CODEX_ZSH_BINARY
     ?? env.SHELL_CODEX_ZSH_BINARY
   const zshBinary = resolveOptionalAsset(
     resolveAssetCandidates({
@@ -117,7 +115,6 @@ export function resolveNativeShellBridge(options: {
   )
   const execveEnvPath = env.CODEX_SANDBOX_EXECVE_WRAPPER_BINARY
     ?? env.CODEX_SHELL_EXECVE_WRAPPER_BINARY
-    ?? env.ELARA_CODEX_EXECVE_WRAPPER_BINARY
     ?? env.SHELL_CODEX_EXECVE_WRAPPER_BINARY
   const execveWrapperBinary = resolveOptionalAsset(
     resolveAssetCandidates({
