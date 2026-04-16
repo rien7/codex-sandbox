@@ -37,6 +37,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache native Rust workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            native/vendor/codex-rs -> target
+          shared-key: native-${{ runner.os }}-v1
+          cache-workspace-crates: true
+
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
