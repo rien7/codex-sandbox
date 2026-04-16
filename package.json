@@ -11,7 +11,8 @@
     "build:packages": "pnpm --dir packages/codex-sandbox-adapter build && pnpm --dir packages/codex-sandbox-cli build && pnpm --dir examples/minimal-ts build",
     "build": "pnpm run build:native && pnpm run sync:native && pnpm run build:packages",
     "check": "pnpm --dir packages/codex-sandbox-adapter build && pnpm --dir packages/codex-sandbox-cli check && pnpm --dir examples/minimal-ts check",
-    "test": "pnpm run build:packages && vitest run"
+    "test": "pnpm run build:packages && vitest run",
+    "release:version": "node scripts/release-version.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",

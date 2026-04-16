@@ -11,8 +11,12 @@ export interface PrepareCodexHomeInput {
 }
 
 /**
- * Keep a dedicated CODEX_HOME ready for the standalone adapter.
- * The config file is only rewritten when this package owns it.
+ * Keep a dedicated `CODEX_HOME` ready for the standalone adapter.
+ *
+ * When bridge assets are available, this function writes a managed
+ * `config.toml` that points Codex shell integration at the packaged `zsh`
+ * and `codex-execve-wrapper` binaries. Existing non-managed configs are left
+ * untouched.
  */
 export async function prepareCodexHome(input: PrepareCodexHomeInput): Promise<void> {
   await mkdir(input.codexHome, { recursive: true })

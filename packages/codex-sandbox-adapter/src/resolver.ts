@@ -71,6 +71,7 @@ export function resolveNativeHostBinary(options: {
 } = {}): NativeShellBinaryResolution | undefined {
   const env = options.env ?? process.env
   const cwd = options.cwd ?? process.cwd()
+  const searchRoots = collectSearchRoots(cwd)
   const envPath = env.CODEX_SANDBOX_HOST_BINARY
     ?? env.CODEX_SHELL_HOST_BINARY
     ?? env.SHELL_CODEX_BINARY
@@ -81,8 +82,11 @@ export function resolveNativeHostBinary(options: {
     ...(options.explicitPath ? { explicitPath: options.explicitPath } : {}),
     ...(envPath ? { envPath } : {}),
     cwd,
+    searchRoots,
     repoBuildCandidates: [
-      resolve(cwd, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host'),
+      ...searchRoots.map(root => (
+        resolve(root, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host')
+      )),
     ],
     ...(systemCandidate ? { systemCandidate } : {}),
   })
@@ -100,6 +104,7 @@ export function resolveNativeShellBridge(options: {
 } = {}): NativeShellBridgeResolution | undefined {
   const env = options.env ?? process.env
   const cwd = options.cwd ?? process.cwd()
+  const searchRoots = collectSearchRoots(cwd)
   const siblingDir = options.hostBinaryPath ? dirname(options.hostBinaryPath) : undefined
   const zshEnvPath = env.CODEX_SANDBOX_ZSH_BINARY
     ?? env.CODEX_SHELL_ZSH_BINARY
@@ -110,6 +115,7 @@ export function resolveNativeShellBridge(options: {
       ...(options.explicitZshPath ? { explicitPath: options.explicitZshPath } : {}),
       ...(zshEnvPath ? { envPath: zshEnvPath } : {}),
       cwd,
+      searchRoots,
       repoBuildCandidates: siblingDir ? [resolve(siblingDir, 'zsh')] : [],
     }),
   )
@@ -122,9 +128,12 @@ export function resolveNativeShellBridge(options: {
       ...(options.explicitExecveWrapperPath ? { explicitPath: options.explicitExecveWrapperPath } : {}),
       ...(execveEnvPath ? { envPath: execveEnvPath } : {}),
       cwd,
+      searchRoots,
       repoBuildCandidates: [
         ...(siblingDir ? [resolve(siblingDir, 'codex-execve-wrapper')] : []),
-        resolve(cwd, 'native', 'vendor', 'codex-rs', 'target', 'release', 'codex-execve-wrapper'),
+        ...searchRoots.map(root => (
+          resolve(root, 'native', 'vendor', 'codex-rs', 'target', 'release', 'codex-execve-wrapper')
+        )),
       ],
     }),
   )
@@ -170,25 +179,30 @@ function resolveAssetCandidates(options: {
   explicitPath?: string
   envPath?: string
   cwd: string
+  searchRoots?: string[]
   repoBuildCandidates?: string[]
   systemCandidate?: NativeShellBinaryResolution
 }): Array<NativeShellBinaryResolution | undefined> {
   const platformKey = getNativePlatformKey()
   const sourceDir = dirname(fileURLToPath(import.meta.url))
+  const searchRoots = options.searchRoots ?? [options.cwd]
   const explicitPath = normalizeCandidatePath(options.explicitPath)
   const envPath = normalizeCandidatePath(options.envPath)
   const packageNativeBinaryPath = resolve(sourceDir, '../native', platformKey, options.assetName)
-  const repoDistBinaryPath = resolve(options.cwd, 'dist', 'native', platformKey, options.assetName)
+  const repoDistCandidates = searchRoots.map(root => (
+    resolve(root, 'dist', 'native', platformKey, options.assetName)
+  ))
   const repoBuildCandidates = options.repoBuildCandidates ?? []
+  const seen = new Set<string>()
 
-  return [
+  return dedupeCandidates([
     explicitPath ? { binaryPath: explicitPath, source: 'explicit' } : undefined,
     envPath ? { binaryPath: envPath, source: 'env' } : undefined,
     { binaryPath: packageNativeBinaryPath, source: 'package-native' },
-    { binaryPath: repoDistBinaryPath, source: 'repo-dist' },
+    ...repoDistCandidates.map(binaryPath => ({ binaryPath, source: 'repo-dist' as const })),
     ...repoBuildCandidates.map(binaryPath => ({ binaryPath, source: 'repo-build' as const })),
     options.systemCandidate,
-  ]
+  ], seen)
 }
 
 function resolveSystemBinary(
@@ -215,4 +229,35 @@ function resolveSystemBinary(
   }
 
   return undefined
+}
+
+function collectSearchRoots(cwd: string): string[] {
+  const roots: string[] = []
+  let current = resolve(cwd)
+  while (true) {
+    roots.push(current)
+    const parent = dirname(current)
+    if (parent === current) {
+      break
+    }
+    current = parent
+  }
+
+  return roots
+}
+
+function dedupeCandidates(
+  candidates: Array<NativeShellBinaryResolution | undefined>,
+  seen: Set<string>,
+): Array<NativeShellBinaryResolution | undefined> {
+  return candidates.filter((candidate) => {
+    if (!candidate) {
+      return false
+    }
+    if (seen.has(candidate.binaryPath)) {
+      return false
+    }
+    seen.add(candidate.binaryPath)
+    return true
+  })
 }

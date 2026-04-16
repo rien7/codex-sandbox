@@ -20,6 +20,7 @@ import type { NativeShellBridgeResolution } from './resolver.js'
 
 const lineSplitPattern = /\r?\n/u
 
+/** Low-level interface for directly speaking to one native host process. */
 export interface CodexShellNativeClient {
   start: () => Promise<void>
   shutdown: () => Promise<void>
@@ -33,12 +34,19 @@ export interface CodexShellNativeClient {
   onApprovalRequest: (listener: (event: HostApprovalRequest) => void) => () => void
 }
 
+/** Spawn configuration for one `codex-sandbox-host` child process. */
 export interface CodexShellHostClientOptions {
+  /** Absolute or relative path to the host executable. */
   binaryPath: string
+  /** Dedicated `CODEX_HOME` used by the child process. */
   codexHome: string
+  /** Optional bridge asset resolution for managed `config.toml`. */
   bridge?: NativeShellBridgeResolution
+  /** Extra argv appended when launching the host. */
   launchArgs?: string[]
+  /** Working directory for the host process itself. */
   cwd?: string
+  /** Extra environment variables merged into the host process environment. */
   env?: NodeJS.ProcessEnv
 }
 
