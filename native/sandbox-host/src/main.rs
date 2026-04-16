@@ -10,7 +10,7 @@ use codex_utils_pty::{ProcessHandle, TerminalSize, combine_output_receivers, spa
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Stdout};
-use tokio::process::{Child, ChildStdin, Command};
+use tokio::process::{Child, Command};
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::timeout;
 
@@ -69,14 +69,15 @@ async fn handle_request(host: Arc<HostState>, request: JsonRpcRequest) -> Result
                         },
                     );
                 }
+                let approval_reason = host.approval_reason(&params);
                 host.write_notification(ApprovalRequestNotification {
                     method: "item/commandExecution/requestApproval",
                     params: HostApprovalRequest {
                         item_id: params.item_id,
                         approval_id,
-                        command: Some(params.cmd),
-                        cwd: Some(params.cwd),
-                        reason: Some(host.approval_reason(&params)),
+                        command: Some(params.cmd.clone()),
+                        cwd: Some(params.cwd.clone()),
+                        reason: Some(approval_reason),
                         available_decisions: Some(vec![
                             HostApprovalDecision::Accept,
                             HostApprovalDecision::AcceptForSession,
@@ -98,7 +99,7 @@ async fn handle_request(host: Arc<HostState>, request: JsonRpcRequest) -> Result
         "command/writeStdin" => {
             let params = parse_params::<HostWriteStdinParams>(request.params)?;
             let response = host.write_to_session(params).await?;
-            host.write_exec_response(request.id, response).await
+            host.write_exec_response(request.id, Ok(response)).await
         }
         "command/terminate" => {
             let params = parse_params::<HostTerminateParams>(request.params)?;
@@ -123,7 +124,7 @@ async fn handle_request(host: Arc<HostState>, request: JsonRpcRequest) -> Result
                             execute_exec_request(&host_for_task, pending.params, pending.started_at).await
                         }
                         HostApprovalDecision::Decline | HostApprovalDecision::Cancel => {
-                            HostExecCommandResult {
+                            Ok(HostExecCommandResult {
                                 item_id: pending.params.item_id,
                                 session_id: None,
                                 exit_code: Some(1),
@@ -134,7 +135,7 @@ async fn handle_request(host: Arc<HostState>, request: JsonRpcRequest) -> Result
                                 ),
                                 chunk_id: host_for_task.next_chunk_id(),
                                 wall_time_ms: pending.started_at.elapsed().as_millis() as u64,
-                            }
+                            })
                         }
                     };
                     host_for_task
@@ -302,7 +303,7 @@ struct PendingApproval {
     started_at: Instant,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct SessionHandle {
     process: ProcessHandle,
     output_rx: Mutex<broadcast::Receiver<Vec<u8>>>,

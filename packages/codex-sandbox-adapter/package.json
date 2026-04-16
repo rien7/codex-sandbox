@@ -4,6 +4,15 @@
   "type": "module",
   "description": "TypeScript adapter for the Codex-derived sandbox host",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rien7/codex-sandbox.git",
+    "directory": "packages/codex-sandbox-adapter"
+  },
+  "homepage": "https://github.com/rien7/codex-sandbox#readme",
+  "bugs": {
+    "url": "https://github.com/rien7/codex-sandbox/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -16,7 +25,9 @@
   "files": [
     "dist",
     "native",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "pnpm exec tsc -p tsconfig.json",

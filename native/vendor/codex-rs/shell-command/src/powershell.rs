@@ -1,3 +1,4 @@
+#![cfg_attr(not(windows), allow(dead_code))]
 use std::path::PathBuf;
 
 use codex_utils_absolute_path::AbsolutePathBuf;

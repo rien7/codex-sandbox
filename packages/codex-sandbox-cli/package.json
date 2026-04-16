@@ -4,12 +4,23 @@
   "type": "module",
   "description": "CLI for testing the Codex-derived sandbox host",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rien7/codex-sandbox.git",
+    "directory": "packages/codex-sandbox-cli"
+  },
+  "homepage": "https://github.com/rien7/codex-sandbox#readme",
+  "bugs": {
+    "url": "https://github.com/rien7/codex-sandbox/issues"
+  },
   "bin": {
     "codex-sandbox": "./dist/index.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "prebuild": "pnpm --dir ../codex-sandbox-adapter build",
