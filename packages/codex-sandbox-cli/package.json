@@ -1,6 +1,6 @@
 {
   "name": "@codex-sandbox/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "CLI for testing the Codex-derived sandbox host",
   "license": "Apache-2.0",
