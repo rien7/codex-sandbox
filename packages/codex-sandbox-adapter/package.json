@@ -1,9 +1,12 @@
 {
-  "name": "@codex-sandbox/adapter",
+  "name": "@rien7/codex-sandbox",
   "version": "0.1.0",
   "type": "module",
   "description": "TypeScript adapter for the Codex-derived sandbox host",
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,4 +23,3 @@
     "check": "pnpm exec tsc -p tsconfig.json --noEmit"
   }
 }
-

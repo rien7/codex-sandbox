@@ -19,6 +19,6 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@codex-sandbox/adapter": "workspace:*"
+    "@rien7/codex-sandbox": "workspace:*"
   }
 }

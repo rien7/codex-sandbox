@@ -20,7 +20,7 @@ importers:
 
   examples/minimal-ts:
     dependencies:
-      '@codex-sandbox/adapter':
+      '@rien7/codex-sandbox':
         specifier: workspace:*
         version: link:../../packages/codex-sandbox-adapter
 
@@ -28,7 +28,7 @@ importers:
 
   packages/codex-sandbox-cli:
     dependencies:
-      '@codex-sandbox/adapter':
+      '@rien7/codex-sandbox':
         specifier: workspace:*
         version: link:../codex-sandbox-adapter
 

@@ -57,7 +57,7 @@ pnpm --dir examples/minimal-ts start
 
 ## Packages
 
-- `@codex-sandbox/adapter`
+- `@rien7/codex-sandbox`
   TypeScript adapter for the host protocol. It resolves packaged binaries and manages `CODEX_HOME`.
 - `@codex-sandbox/cli`
   Interactive CLI that uses the adapter package and prompts for approvals inline.

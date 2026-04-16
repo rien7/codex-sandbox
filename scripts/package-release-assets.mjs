@@ -31,7 +31,7 @@ cpSync(resolve(ROOT_DIR, 'NOTICE'), resolve(nativeStageDir, 'NOTICE'))
 const adapterPackageDir = resolve(ROOT_DIR, 'packages', 'codex-sandbox-adapter')
 const cliPackageDir = resolve(ROOT_DIR, 'packages', 'codex-sandbox-cli')
 
-copyPackage(adapterPackageDir, resolve(cliStageDir, 'node_modules', '@codex-sandbox', 'adapter'))
+copyPackage(adapterPackageDir, resolve(cliStageDir, 'node_modules', '@rien7', 'codex-sandbox'))
 copyPackage(cliPackageDir, resolve(cliStageDir, 'node_modules', '@codex-sandbox', 'cli'))
 cpSync(resolve(ROOT_DIR, 'LICENSE'), resolve(cliStageDir, 'LICENSE'))
 cpSync(resolve(ROOT_DIR, 'NOTICE'), resolve(cliStageDir, 'NOTICE'))
@@ -132,4 +132,3 @@ function getNativePlatformKey() {
       return `${process.platform}-${arch}`
   }
 }
-

@@ -1,4 +1,4 @@
-# @codex-sandbox/adapter
+# @rien7/codex-sandbox
 
 This package wraps the standalone `codex-sandbox-host` binary.
 
@@ -7,13 +7,13 @@ It resolves packaged binaries, prepares `CODEX_HOME`, and speaks newline-delimit
 ## Install
 
 ```bash
-npm install @codex-sandbox/adapter
+npm install @rien7/codex-sandbox
 ```
 
 ## Use
 
 ```ts
-import { CodexShellAdapter } from '@codex-sandbox/adapter'
+import { CodexShellAdapter } from '@rien7/codex-sandbox'
 
 const adapter = new CodexShellAdapter()
 const result = await adapter.exec({ cmd: 'printf hello' })
@@ -33,4 +33,3 @@ native/<platform>/
 ```
 
 The adapter can also use explicit paths or environment variables when you want to provide your own build.
-

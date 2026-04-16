@@ -21,7 +21,7 @@ function createHostWrapper(): string {
   return wrapperPath
 }
 
-describe('@codex-sandbox/adapter', () => {
+describe('@rien7/codex-sandbox', () => {
   it('runs buffered commands through the standalone adapter', async () => {
     const adapter = new CodexShellAdapter({
       hostBinary: createHostWrapper(),
@@ -76,4 +76,3 @@ describe('@codex-sandbox/adapter', () => {
     }
   })
 })
-

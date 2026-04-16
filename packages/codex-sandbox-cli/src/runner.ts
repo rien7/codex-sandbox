@@ -3,7 +3,7 @@ import process from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { parseArgs } from 'node:util'
 
-import { CodexShellAdapter } from '@codex-sandbox/adapter'
+import { CodexShellAdapter } from '@rien7/codex-sandbox'
 import type {
   CodexShellAdapterOptions,
   CodexShellApprovalContext,
@@ -13,7 +13,7 @@ import type {
   CodexShellResult,
   CodexShellSandboxPermissions,
   CodexShellWriteInput,
-} from '@codex-sandbox/adapter'
+} from '@rien7/codex-sandbox'
 
 export interface RunCliOptions {
   cwd?: string

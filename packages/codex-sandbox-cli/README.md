@@ -2,7 +2,7 @@
 
 This package provides the `codex-sandbox` command.
 
-It uses `@codex-sandbox/adapter` and shows approval choices inline when the host asks for permission.
+It uses `@rien7/codex-sandbox` and shows approval choices inline when the host asks for permission.
 
 ## Example
 

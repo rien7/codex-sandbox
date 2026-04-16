@@ -1,4 +1,4 @@
-import { CodexShellAdapter } from '@codex-sandbox/adapter'
+import { CodexShellAdapter } from '@rien7/codex-sandbox'
 
 async function main(): Promise<void> {
   const adapter = new CodexShellAdapter()
