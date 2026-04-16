@@ -33,11 +33,17 @@ export type CodexShellApprovalDecision = HostApprovalDecision
  * host can receive exactly one decision for this request.
  */
 export interface CodexShellApprovalRequest {
+  /** Adapter-generated identifier that ties this approval prompt back to the originating command. */
   itemId: string
+  /** Host-generated identifier used to send one decision back for this exact approval prompt. */
   approvalId: string
+  /** Original shell snippet being considered for approval, when the host includes it. */
   command?: string
+  /** Working directory associated with the request, when available. */
   cwd?: string
+  /** Host-supplied short explanation for why approval is needed, when available. */
   reason?: string
+  /** Decisions the host says are valid for this request. Undefined means "any supported decision". */
   availableDecisions?: CodexShellApprovalDecision[]
 }
 
@@ -50,7 +56,9 @@ export interface CodexShellApprovalRequest {
  * requests.
  */
 export interface CodexShellApprovalContext {
+  /** Same adapter-generated identifier used by the request object. */
   itemId: string
+  /** Sandbox policy chosen for the command that triggered the approval request. */
   sandboxPermissions: CodexShellSandboxPermissions
 }
 
@@ -80,11 +88,11 @@ export type CodexShellApprovalResolver = (
 
 /** Input accepted by `adapter.exec()`. */
 export interface CodexShellExecInput {
-  /** Shell snippet to execute. */
+  /** Shell snippet to execute. This is passed to the configured shell, not run directly by Node.js. */
   cmd: string
   /** Working directory for the command. Defaults to `options.cwd` or `process.cwd()`. */
   cwd?: string
-  /** Extra environment variables merged on top of `process.env`. */
+  /** Extra environment variables merged on top of `process.env` for the spawned shell process. */
   env?: Record<string, string>
   /** Optional hard timeout in milliseconds for non-interactive commands. */
   timeoutMs?: number
@@ -122,14 +130,27 @@ export interface CodexShellWriteInput {
   maxOutputTokens?: number
 }
 
-/** Normalized result returned by `exec()` and `writeToSession()`. */
+/**
+ * Normalized result returned by `exec()` and `writeToSession()`.
+ *
+ * This is the adapter-level shape you should expect in app code. It hides the
+ * lower-level host protocol details and keeps the result stable whether the
+ * command finished immediately or is still running in a PTY session.
+ */
 export interface CodexShellResult {
+  /** Adapter session id, present when the command is still running under a PTY. */
   sessionId?: string
+  /** Original command string that produced this result. */
   command: string
+  /** Effective working directory used for the command. */
   cwd: string
+  /** Exit code, present when the command has finished. */
   exitCode?: number
+  /** True when the command is still running and can be resumed or written to. */
   running: boolean
+  /** Aggregated output collected so far, possibly cropped to the configured output budget. */
   output: string
+  /** The latest chunk returned by the host for this request. */
   latestChunk: string
 }
 
@@ -140,6 +161,7 @@ export interface CodexShellResult {
  * `writeToSession()`.
  */
 export interface CodexShellSessionSnapshot extends CodexShellResult {
+  /** Sandbox policy captured when the session was created. */
   sandboxPermissions: CodexShellSandboxPermissions
 }
 
@@ -187,27 +209,55 @@ export interface CodexShellAdapterOptions {
    *
    * Usually not needed. The adapter resolves packaged assets, ancestor repo
    * builds, environment overrides, and finally `PATH`.
+   *
+   * Set this when you want to pin one exact host binary instead of relying on
+   * auto-discovery.
    */
   hostBinary?: string
   /**
    * Dedicated config directory used as `CODEX_HOME` for the native host.
    *
    * Defaults to `~/.codex-sandbox`.
+   *
+   * This is useful when you want isolated config state per project or test run.
    */
   configPath?: string
-  /** Default shell binary for commands. */
+  /**
+   * Default shell binary for commands.
+   *
+   * This is the shell the native host invokes when you do not override `shell`
+   * per command.
+   */
   shell?: string
-  /** Default command working directory and native asset search starting point. */
+  /**
+   * Default command working directory and native asset search starting point.
+   *
+   * This value influences both where commands run and where the adapter begins
+   * looking for repo-local native binaries.
+   */
   cwd?: string
-  /** Extra environment variables passed to the native host process. */
+  /**
+   * Extra environment variables passed to the native host process.
+   *
+   * These are merged into the child process environment for the host itself,
+   * not just the shell command you eventually execute.
+   */
   env?: NodeJS.ProcessEnv
-  /** Extra argv appended when spawning `codex-sandbox-host`. */
+  /**
+   * Extra argv appended when spawning `codex-sandbox-host`.
+   *
+   * Use this only when you know the native host accepts additional CLI flags.
+   */
   launchArgs?: string[]
   /**
    * Inline approval callback for guarded commands.
    *
    * This is where you choose between `accept`, `acceptForSession`,
    * `decline`, and `cancel`.
+   *
+   * The callback should return quickly and deterministically. It is part of the
+   * approval path, so it should not itself start shell commands or wait on
+   * interactive UI unless you intentionally want to block execution.
    */
   approvalResolver?: CodexShellApprovalResolver
   /**

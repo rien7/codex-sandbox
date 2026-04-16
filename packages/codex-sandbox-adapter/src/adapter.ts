@@ -28,12 +28,19 @@ import type {
 const defaultYieldTimeMs = 1_000
 
 export interface CodexShellAdapterRuntime {
+  /** Warm up the native host process without executing a command yet. */
   start: () => Promise<void>
+  /** Shut down the native host process and clear any adapter-held session state. */
   close: () => Promise<void>
+  /** Execute a shell command through the sandbox host. */
   exec: (input: CodexShellExecInput, signal?: AbortSignal) => Promise<CodexShellResult>
+  /** Write bytes or text into a live PTY session started by `exec({ tty: true })`. */
   writeToSession: (input: CodexShellWriteInput, signal?: AbortSignal) => Promise<CodexShellResult>
+  /** Ask the native host to terminate a live PTY session. */
   terminateSession: (sessionId: string) => Promise<void>
+  /** Read a copy of the current session snapshot, if the session still exists. */
   getSessionSnapshot: (sessionId: string) => CodexShellSessionSnapshot | undefined
+  /** List all known sessions tracked by the adapter. */
   listSessions: () => CodexShellSessionSnapshot[]
 }
 
@@ -41,9 +48,13 @@ export interface CodexShellAdapterRuntime {
 export class CodexShellAdapter implements CodexShellAdapterRuntime {
   private readonly options: CodexShellAdapterOptions
   private readonly sessions = new CodexShellSessionStore()
+  /** Temporary lookup that ties a host approval request back to the command that triggered it. */
   private readonly approvalContexts = new Map<string, CodexShellApprovalContext>()
+  /** Lazily created native client, reused across calls until `close()` is invoked. */
   private client: CodexShellNativeClient | undefined
+  /** Memoized startup promise so parallel callers share one native host initialization. */
   private clientPromise: Promise<CodexShellNativeClient> | undefined
+  /** Subscription handle for host-emitted approval notifications. */
   private approvalUnsubscribe: (() => void) | undefined
 
   constructor(options: CodexShellAdapterOptions = {}) {
@@ -51,6 +62,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
   }
 
   async start(): Promise<void> {
+    // Force client creation so the host process is ready before the first command.
     await this.getClient()
   }
 
@@ -62,11 +74,13 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
     approvalUnsubscribe?.()
 
     if (!client) {
+      // Nothing was started yet, so just clear memoized startup state.
       this.clientPromise = undefined
       this.approvalContexts.clear()
       return
     }
 
+    // Best-effort cleanup: terminate any still-running PTY sessions before the host exits.
     await Promise.allSettled(this.sessions.values().filter(session => session.running).map(async (session) => {
       const sessionId = session.sessionId
       if (!sessionId) {
@@ -93,6 +107,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
     const client = await this.getClient()
     const itemId = randomUUID()
     const normalized = normalizeExecInput(this.options, input)
+    // Store request-scoped context long enough for the host's approval callback to arrive.
     const approvalContext: CodexShellApprovalContext = {
       itemId,
       sandboxPermissions: normalized.sandboxPermissions,
@@ -122,6 +137,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
 
     const client = await this.getClient()
     const itemId = randomUUID()
+    // Reuse the original session's sandbox policy when the PTY session is extended.
     const approvalContext: CodexShellApprovalContext = {
       itemId,
       sandboxPermissions: session.sandboxPermissions,
@@ -165,6 +181,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
 
   private async getClient(): Promise<CodexShellNativeClient> {
     if (!this.clientPromise) {
+      // Only the first caller constructs the client; others await the same promise.
       this.clientPromise = this.createClient()
     }
 
@@ -172,6 +189,8 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
   }
 
   private async createClient(): Promise<CodexShellNativeClient> {
+    // Resolve the native host and optional bridge assets from explicit config,
+    // environment overrides, packaged binaries, repo builds, or PATH.
     const resolution = resolveNativeShellBundle({
       ...(this.options.hostBinary ? { hostBinary: this.options.hostBinary } : {}),
       ...(this.options.bridge?.zshBinary ? { zshBinary: this.options.bridge.zshBinary } : {}),
@@ -185,6 +204,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
       throw new Error('Could not resolve a native sandbox host binary. Set CODEX_SANDBOX_HOST_BINARY or provide hostBinary.')
     }
 
+    // The low-level host client owns one native process and speaks JSON-RPC over stdio.
     const client = new CodexShellHostClient({
       binaryPath: resolution.hostBinary.binaryPath,
       configPath: this.options.configPath ?? getDefaultConfigPath(),
@@ -195,6 +215,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
     })
 
     await client.start()
+    // Register the approval listener only after the host is running.
     this.approvalUnsubscribe = client.onApprovalRequest((event) => {
       void this.handleApprovalRequest(event)
     })
@@ -203,6 +224,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
   }
 
   private buildExecParams(input: NormalizedExecInput, itemId: string): HostExecCommandParams {
+    // Convert the adapter-level exec input into the raw host protocol shape.
     return {
       itemId,
       cmd: input.cmd,
@@ -223,6 +245,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
     itemId: string,
     sessionId: number,
   ): HostWriteStdinParams {
+    // `writeToSession()` only needs stdin bytes and a session target.
     return {
       itemId,
       sessionId,
@@ -233,6 +256,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
   }
 
   private consumeExecResult(input: NormalizedExecInput, result: HostExecCommandResult): CodexShellResult {
+    // If the host returned a session id without an exit code, the command is still running.
     if (result.sessionId && result.exitCode === undefined) {
       const session = this.sessions.createRunningSession({
         sessionId: result.sessionId,
@@ -244,6 +268,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
       return { ...session }
     }
 
+    // Otherwise normalize the host's one-shot result into the higher-level adapter shape.
     return {
       command: input.cmd,
       cwd: input.cwd,
@@ -258,6 +283,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
     context: CodexShellApprovalContext,
     run: () => Promise<TValue>,
   ): Promise<TValue> {
+    // The map entry exists only while the host may still emit an approval request.
     this.approvalContexts.set(context.itemId, context)
     try {
       return await run()
@@ -273,6 +299,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
       return
     }
 
+    // Look up the request metadata that was captured when the command started.
     const context = this.approvalContexts.get(request.itemId)
     const decision = await resolveApprovalDecision(this.options.approvalResolver, request, context)
     await client.respondToApproval({
@@ -326,6 +353,7 @@ async function resolveApprovalDecision(
 }
 
 function toHostSandboxPermissions(value: CodexShellSandboxPermissions): HostSandboxPermissions {
+  // The host protocol currently uses the same two symbolic values.
   return value === 'requireEscalated' ? 'requireEscalated' : 'useDefault'
 }
 
@@ -358,6 +386,7 @@ function defaultApprovalDecision(
   availableDecisions: CodexShellApprovalDecision[] | undefined,
   context: CodexShellApprovalContext | undefined,
 ): CodexShellApprovalDecision {
+  // When no resolver is provided, choose the least surprising allowed decision.
   const preferred: CodexShellApprovalDecision[] = context?.sandboxPermissions === 'requireEscalated'
     ? ['acceptForSession', 'accept', 'decline', 'cancel']
     : ['decline', 'cancel', 'accept', 'acceptForSession']
@@ -379,6 +408,7 @@ function isDecisionAllowed(
 }
 
 function getDefaultShell(): string {
+  // Match common shell resolution order without forcing callers to configure it.
   if (process.env.SHELL) {
     return process.env.SHELL
   }

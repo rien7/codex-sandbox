@@ -16,26 +16,19 @@ The adapter handles:
 - preparing the host configuration directory
 - speaking newline-delimited JSON-RPC over stdio
 
-## Install
+## Concept
 
-```bash
-npm install @rien7/codex-sandbox
-```
+### Terminology
 
-## Default behavior
+Some words used in this package are easy to mix up:
 
-`CodexShellAdapter` is designed to work without manually passing `configPath`, `hostBinary`, or `bridge`.
+- `adapter`: the TypeScript wrapper you call from your app
+- `native host`: the separate `codex-sandbox-host` process that actually runs commands
+- `bridge`: optional native helper binaries that make shell startup sandbox-aware
+- `approval request`: a message from the native host asking whether a guarded command may run
+- `approval resolver`: your callback that decides how to answer an approval request
 
-Defaults:
-
-- `configPath`: `~/.config/codex-sandbox` on Unix-like systems, and a platform-appropriate app config directory on Windows
-- `cwd`: `process.cwd()`
-- `shell`: `options.shell`, then `$SHELL`, then `%ComSpec%` on Windows, otherwise `/bin/zsh`
-- `sandboxPermissions`: `useDefault`
-- `login`: `true`
-- `tty`: `false`
-
-## What The Adapter Does
+### What the adapter does
 
 At a high level, the adapter is a small orchestration layer around a native
 `codex-sandbox-host` process.
@@ -52,7 +45,21 @@ If you are new to this project, the important idea is that the TypeScript
 package does not itself execute commands. It launches and manages a separate
 native host process that does the real work.
 
-## Native asset resolution
+### Execution model
+
+The adapter keeps one native host process alive and reuses it across calls.
+
+That means:
+
+- `exec()` sends one command to the host and returns a normalized result
+- `exec({ tty: true })` may return a live session instead of a finished result
+- `writeToSession()` only applies to an already-running PTY session
+- `close()` shuts the host down and drops any adapter-held session state
+
+This model matters because approvals, sessions, and bridge setup all happen in
+the host process, not in your Node.js process.
+
+### Native asset resolution
 
 The adapter tries these locations in order:
 
@@ -63,7 +70,7 @@ The adapter tries these locations in order:
 5. Direct repo build outputs in the current directory or any ancestor
 6. Matching system binaries on `PATH`
 
-## Bridge
+### Bridge
 
 The bridge is the extra native layer that helps the host launch shell commands
 in a sandbox-aware way.
@@ -92,6 +99,13 @@ Bridge options:
 - `zshBinary` overrides the shell binary used by the bridge
 - `execveWrapperBinary` overrides the exec wrapper used by the bridge
 
+Bridge lifecycle in practice:
+
+- the adapter looks for packaged bridge assets automatically
+- if it finds them, it writes a managed host config that points at those binaries
+- if you disable the bridge, the adapter skips that extra setup
+- if you provide custom paths, those explicit paths win
+
 Environment overrides:
 
 ```bash
@@ -100,7 +114,53 @@ export CODEX_SANDBOX_ZSH_BINARY=/absolute/path/to/zsh
 export CODEX_SANDBOX_EXECVE_WRAPPER_BINARY=/absolute/path/to/codex-execve-wrapper
 ```
 
-## Minimal usage
+### Configuration directory
+
+`configPath` is the configuration directory used for the native host runtime.
+
+Internally it is passed to the host as `CODEX_HOME`, but you can think of it as
+“where the adapter-managed host config lives”.
+
+When bridge assets are available, the adapter writes a managed `config.toml`
+into that directory so the shell integration can find:
+
+- `zsh`
+- `codex-execve-wrapper`
+
+Non-managed configs are left untouched.
+
+If you are only using the high-level adapter API, you usually do not need to
+touch this directory yourself.
+
+If you do override it, keep in mind:
+
+- the directory must be writable by the current process
+- sharing one config path across unrelated runs can make debugging harder
+- deleting the directory removes the managed host config, but not the native binaries themselves
+
+## Quick Start
+
+### Install
+
+```bash
+npm install @rien7/codex-sandbox
+```
+
+### Default behavior
+
+`CodexShellAdapter` is designed to work without manually passing `configPath`,
+`hostBinary`, or `bridge`.
+
+Defaults:
+
+- `configPath`: `~/.config/codex-sandbox` on Unix-like systems, and a platform-appropriate app config directory on Windows
+- `cwd`: `process.cwd()`
+- `shell`: `options.shell`, then `$SHELL`, then `%ComSpec%` on Windows, otherwise `/bin/zsh`
+- `sandboxPermissions`: `useDefault`
+- `login`: `true`
+- `tty`: `false`
+
+### Minimal usage
 
 ```ts
 import { CodexShellAdapter } from '@rien7/codex-sandbox'
@@ -119,7 +179,7 @@ finally {
 }
 ```
 
-## Command options
+### Command options
 
 ```ts
 const result = await adapter.exec({
@@ -145,7 +205,9 @@ Important fields:
 - `tty`: start a PTY-backed interactive session
 - `sandboxPermissions`: `useDefault` or `requireEscalated`
 
-## Approval flow
+## Workflow
+
+### Approval flow
 
 Guarded commands can emit an approval request before execution.
 
@@ -190,12 +252,20 @@ Approval decision meanings:
 - `decline`: explicitly reject execution
 - `cancel`: abort without approval
 
+How to think about the choices:
+
+- use `accept` when the command is safe, but you only want this one request approved
+- use `acceptForSession` when several guarded commands in the same host lifetime should reuse the same approval
+- use `decline` when the command should never run
+- use `cancel` when you want to stop without treating it as a policy rejection
+
 Current behavior notes:
 
 - `acceptForSession` requires no extra configuration
 - the remembered approval lasts only as long as the current adapter/native host process
 - `adapter.close()` clears that state by shutting down the host
 - `decline` and `cancel` both stop execution; the current host returns a non-zero completion with the decision encoded in the output payload
+- if the host limits `availableDecisions`, the resolver should pick one of the allowed values
 
 `sandboxPermissions` and `approvalResolver` solve different problems:
 
@@ -208,7 +278,7 @@ The common pattern is:
 - use `requireEscalated` when the command is sensitive or likely to need extra approval
 - return `acceptForSession` only when you want the current host process to remember that approval
 
-## One-off approval example
+### One-off approval example
 
 ```ts
 const result = await adapter.exec({
@@ -223,7 +293,7 @@ Resolver:
 approvalResolver: async () => 'accept'
 ```
 
-## Session approval example
+### Session approval example
 
 If you want one approval to cover later guarded commands in the same adapter lifetime:
 
@@ -241,7 +311,7 @@ const adapter = new CodexShellAdapter({
 
 Then later guarded commands can reuse that decision while the adapter stays alive.
 
-## Rejected path example
+### Rejected path example
 
 ```ts
 const adapter = new CodexShellAdapter({
@@ -255,7 +325,7 @@ const adapter = new CodexShellAdapter({
 })
 ```
 
-## Interactive sessions
+### Interactive sessions
 
 Set `tty: true` to create a live shell session:
 
@@ -282,7 +352,7 @@ Session helpers:
 - `adapter.listSessions()`
 - `adapter.terminateSession(sessionId)`
 
-## Explicit path overrides
+### Explicit path overrides
 
 You only need to pass explicit native paths when:
 
@@ -303,42 +373,24 @@ const adapter = new CodexShellAdapter({
 })
 ```
 
-## Configuration directory
+## Reference
 
-`configPath` is the configuration directory used for the native host runtime.
-
-Internally it is passed to the host as `CODEX_HOME`, but you can think of it as “where the adapter-managed host config lives”.
-
-When bridge assets are available, the adapter writes a managed `config.toml` into that directory so the shell integration can find:
-
-- `zsh`
-- `codex-execve-wrapper`
-
-Non-managed configs are left untouched.
-
-If you are only using the high-level adapter API, you usually do not need to
-touch this directory yourself.
-
-Low-level helper:
-
-```ts
-import { prepareConfigPath } from '@rien7/codex-sandbox'
-```
-
-## Low-level APIs
+### Low-level APIs
 
 Most consumers should stay with `CodexShellAdapter`.
 
 Lower-level exports exist when you need them:
 
-- `CodexShellHostClient`
-- `resolveNativeShellBundle()`
-- `resolveNativeHostBinary()`
-- `resolveNativeShellBridge()`
-- `getNativePlatformKey()`
-- `prepareConfigPath()`
+- `CodexShellHostClient`: own one native host process directly and speak the raw JSON-RPC protocol
+- `resolveNativeShellBundle()`: resolve the host binary and optional bridge assets with the same discovery logic as the adapter
+- `resolveNativeHostBinary()`: locate only the host binary
+- `resolveNativeShellBridge()`: locate only the bridge binaries
+- `getNativePlatformKey()`: inspect the platform key used for packaged native lookup
+- `prepareConfigPath()`: create or update the managed host config directory before launch
 
-## Packaged native layout
+Use these when you need to embed the host in a custom runtime, debug startup issues, or bypass the high-level session management.
+
+### Packaged native layout
 
 The published package is expected to include:
 
@@ -349,7 +401,7 @@ native/<platform>/
   zsh
 ```
 
-## Developing in this repo
+### Developing in this repo
 
 Inside this repository:
 
@@ -360,3 +412,16 @@ pnpm --dir packages/codex-sandbox-adapter build
 ```
 
 After that, `new CodexShellAdapter()` can resolve repo-local builds from the current directory or any ancestor directory.
+
+## Troubleshooting
+
+If things do not start the way you expect, check these first:
+
+- `hostBinary` or `CODEX_SANDBOX_HOST_BINARY` may point at the wrong binary
+- the bridge may be disabled, which changes how shell startup is handled
+- `configPath` may not be writable
+- your `approvalResolver` may be returning a decision that is not allowed by the host
+- you may be reusing a session id after the adapter has been closed
+
+When debugging native startup issues, it is usually more useful to inspect the
+resolved host and bridge paths than to look at the high-level API first.
