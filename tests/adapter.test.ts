@@ -15,6 +15,16 @@ const fixturePath = resolve(
 
 function createHostWrapper(): string {
   const wrapperDir = mkdtempSync(join(tmpdir(), 'codex-sandbox-host-'))
+  if (process.platform === 'win32') {
+    const wrapperPath = join(wrapperDir, 'codex-sandbox-host.cmd')
+    writeFileSync(
+      wrapperPath,
+      `@echo off\r\n"${process.execPath}" "${fixturePath}" %*\r\n`,
+      'utf8',
+    )
+    return wrapperPath
+  }
+
   const wrapperPath = join(wrapperDir, 'codex-sandbox-host')
   writeFileSync(wrapperPath, `#!/bin/sh\nexec "${process.execPath}" "${fixturePath}" "$@"\n`, 'utf8')
   chmodSync(wrapperPath, 0o755)
