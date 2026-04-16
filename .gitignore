@@ -9,5 +9,9 @@ native/vendor/codex-rs/target
 native/sandbox-host/target
 packages/*/dist
 packages/*/native
+packages/*/src/*.js
+packages/*/src/*.js.map
+packages/*/src/*.d.ts
+packages/*/src/*.d.ts.map
 examples/*/dist
 ci/native-artifacts

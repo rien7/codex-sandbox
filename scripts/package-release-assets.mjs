@@ -1,5 +1,5 @@
 import { chmodSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -9,9 +9,10 @@ const DIST_DIR = resolve(ROOT_DIR, 'dist')
 const RELEASE_DIR = resolve(DIST_DIR, 'release')
 const platformKey = readPlatformKey()
 const nativeDir = resolve(DIST_DIR, 'native', platformKey)
+const hostAssetName = getExecutableAssetName('codex-sandbox-host')
 
-if (!existsSync(resolve(nativeDir, 'codex-sandbox-host'))) {
-  throw new Error(`Missing native asset codex-sandbox-host for ${platformKey}. Run build:native and sync:native first.`)
+if (!existsSync(resolve(nativeDir, hostAssetName))) {
+  throw new Error(`Missing native asset ${hostAssetName} for ${platformKey}. Run build:native and sync:native first.`)
 }
 
 mkdirSync(RELEASE_DIR, { recursive: true })
@@ -39,12 +40,14 @@ writeFileSync(resolve(cliStageDir, 'README.txt'), [
   'codex-sandbox CLI distribution',
   '',
   'Run:',
-  '  ./codex-sandbox exec --cmd "printf hello"',
+  ...(platformKey.startsWith('win32-')
+    ? ['  codex-sandbox.cmd exec --cmd "echo hello"']
+    : ['  ./codex-sandbox exec --cmd "printf hello"']),
   '',
   'This launcher expects Node.js on PATH.',
   '',
 ].join('\n'))
-writeLauncher(resolve(cliStageDir, 'codex-sandbox'))
+writeLauncher(cliStageDir)
 
 createTarball(nativeStageDir)
 createTarball(cliStageDir)
@@ -58,7 +61,18 @@ function readPlatformKey() {
   return getNativePlatformKey()
 }
 
-function writeLauncher(filePath) {
+function writeLauncher(stageDir) {
+  if (platformKey.startsWith('win32-')) {
+    writeFileSync(resolve(stageDir, 'codex-sandbox.cmd'), [
+      '@echo off',
+      'set DIR=%~dp0',
+      'node "%DIR%node_modules\\@codex-sandbox\\cli\\dist\\index.js" %*',
+      '',
+    ].join('\r\n'))
+    return
+  }
+
+  const filePath = resolve(stageDir, 'codex-sandbox')
   writeFileSync(filePath, [
     '#!/bin/sh',
     'DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"',
@@ -94,7 +108,7 @@ function createTarball(stageDir) {
     archivePath,
     '-C',
     dirname(stageDir),
-    stageDir.split('/').at(-1),
+    basename(stageDir),
   ], {
     stdio: 'inherit',
   })
@@ -106,14 +120,16 @@ function resolveSystemBinary(binaryName) {
     return undefined
   }
 
-  for (const segment of pathValue.split(':')) {
+  for (const segment of pathValue.split(delimiter)) {
     if (!segment) {
       continue
     }
 
-    const candidate = resolve(segment, binaryName)
-    if (existsSync(candidate)) {
-      return candidate
+    for (const candidateName of getExecutableCandidateNames(binaryName)) {
+      const candidate = resolve(segment, candidateName)
+      if (existsSync(candidate)) {
+        return candidate
+      }
     }
   }
 
@@ -131,4 +147,18 @@ function getNativePlatformKey() {
     default:
       return `${process.platform}-${arch}`
   }
+}
+
+function getExecutableAssetName(binaryName) {
+  return platformKey.startsWith('win32-') && !binaryName.endsWith('.exe')
+    ? `${binaryName}.exe`
+    : binaryName
+}
+
+function getExecutableCandidateNames(binaryName) {
+  if (process.platform === 'win32' && !binaryName.endsWith('.exe')) {
+    return [`${binaryName}.exe`, binaryName]
+  }
+
+  return [binaryName]
 }

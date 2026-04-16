@@ -1,32 +1,44 @@
+import envPaths from 'env-paths'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 
 import type { NativeShellBridgeResolution } from './resolver.js'
 
 const MANAGED_CONFIG_MARKER = '# Managed by codex-sandbox-adapter. Do not edit by hand.'
 
-export interface PrepareCodexHomeInput {
-  codexHome: string
+export interface PrepareConfigPathInput {
+  configPath: string
   bridge?: NativeShellBridgeResolution
 }
 
+/** Resolve the adapter's default host configuration directory. */
+export function getDefaultConfigPath(): string {
+  if (process.platform === 'win32') {
+    return envPaths('codex-sandbox', { suffix: '' }).config
+  }
+
+  return join(homedir(), '.config', 'codex-sandbox')
+}
+
 /**
- * Keep a dedicated `CODEX_HOME` ready for the standalone adapter.
+ * Keep a dedicated config path ready for the standalone adapter.
  *
  * When bridge assets are available, this function writes a managed
  * `config.toml` that points Codex shell integration at the packaged `zsh`
  * and `codex-execve-wrapper` binaries. Existing non-managed configs are left
  * untouched.
  */
-export async function prepareCodexHome(input: PrepareCodexHomeInput): Promise<void> {
-  await mkdir(input.codexHome, { recursive: true })
+export async function prepareConfigPath(input: PrepareConfigPathInput): Promise<void> {
+  await mkdir(input.configPath, { recursive: true })
 
   const managedConfig = buildManagedCodexConfig(input)
   if (!managedConfig) {
     return
   }
 
-  const configPath = join(input.codexHome, 'config.toml')
+  const configPath = join(input.configPath, 'config.toml')
   const existing = await readOptionalTextFile(configPath)
   if (existing && !existing.startsWith(MANAGED_CONFIG_MARKER)) {
     return
@@ -38,7 +50,7 @@ export async function prepareCodexHome(input: PrepareCodexHomeInput): Promise<vo
   await writeFile(configPath, managedConfig, 'utf8')
 }
 
-function buildManagedCodexConfig(input: PrepareCodexHomeInput): string | undefined {
+function buildManagedCodexConfig(input: PrepareConfigPathInput): string | undefined {
   if (!input.bridge) {
     return undefined
   }

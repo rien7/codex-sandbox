@@ -13,7 +13,7 @@ The adapter handles:
 
 - resolving the native host binary
 - resolving bridge assets when present
-- preparing a managed `CODEX_HOME`
+- preparing the host configuration directory
 - speaking newline-delimited JSON-RPC over stdio
 
 ## Install
@@ -24,16 +24,33 @@ npm install @rien7/codex-sandbox
 
 ## Default behavior
 
-`CodexShellAdapter` is designed to work without manually passing `codexHome`, `hostBinary`, or `bridge`.
+`CodexShellAdapter` is designed to work without manually passing `configPath`, `hostBinary`, or `bridge`.
 
 Defaults:
 
-- `codexHome`: `~/.codex-sandbox`
+- `configPath`: `~/.config/codex-sandbox` on Unix-like systems, and a platform-appropriate app config directory on Windows
 - `cwd`: `process.cwd()`
-- `shell`: `options.shell`, then `$SHELL`, then `/bin/zsh`
+- `shell`: `options.shell`, then `$SHELL`, then `%ComSpec%` on Windows, otherwise `/bin/zsh`
 - `sandboxPermissions`: `useDefault`
 - `login`: `true`
 - `tty`: `false`
+
+## What The Adapter Does
+
+At a high level, the adapter is a small orchestration layer around a native
+`codex-sandbox-host` process.
+
+It is responsible for:
+
+- resolving the native host binary
+- preparing a dedicated config directory for that host
+- discovering optional bridge assets when they are available
+- forwarding `exec()` and `writeToSession()` calls over stdio
+- converting approval requests from the host into a simple TypeScript callback
+
+If you are new to this project, the important idea is that the TypeScript
+package does not itself execute commands. It launches and manages a separate
+native host process that does the real work.
 
 ## Native asset resolution
 
@@ -45,6 +62,35 @@ The adapter tries these locations in order:
 4. `dist/native/<platform>/...` in the current directory or any ancestor
 5. Direct repo build outputs in the current directory or any ancestor
 6. Matching system binaries on `PATH`
+
+## Bridge
+
+The bridge is the extra native layer that helps the host launch shell commands
+in a sandbox-aware way.
+
+In practice, it is usually a pair of native binaries:
+
+- a patched shell binary, often `zsh`
+- a small exec wrapper, `codex-execve-wrapper`
+
+The adapter uses bridge assets when they are available so the host can intercept
+command startup cleanly and route it through the sandbox-aware execution path.
+
+You normally do not need to configure the bridge manually. If the package ships
+prebuilt native assets, or if you are running from the repository layout, the
+adapter will try to find them automatically.
+
+Bridge configuration is only useful when:
+
+- you want to pin a custom native build
+- you are using a nonstandard filesystem layout
+- you need to disable the bridge layer entirely
+
+Bridge options:
+
+- `enabled: false` disables bridge setup even if bridge assets are found
+- `zshBinary` overrides the shell binary used by the bridge
+- `execveWrapperBinary` overrides the exec wrapper used by the bridge
 
 Environment overrides:
 
@@ -103,6 +149,20 @@ Important fields:
 
 Guarded commands can emit an approval request before execution.
 
+The sequence is:
+
+1. You call `adapter.exec()` or `adapter.writeToSession()`
+2. The native host decides that the command needs approval
+3. The host emits an approval request
+4. The adapter calls `approvalResolver(request, context)` if one is configured
+5. The resolver returns a decision
+6. The adapter sends that decision back to the host
+7. The host either continues execution or rejects the request
+
+This means `approvalResolver` is a pre-execution policy hook. It is not a
+post-execution callback and it does not modify the sandbox after the command
+starts.
+
 Add `approvalResolver` to decide inline:
 
 ```ts
@@ -136,6 +196,17 @@ Current behavior notes:
 - the remembered approval lasts only as long as the current adapter/native host process
 - `adapter.close()` clears that state by shutting down the host
 - `decline` and `cancel` both stop execution; the current host returns a non-zero completion with the decision encoded in the output payload
+
+`sandboxPermissions` and `approvalResolver` solve different problems:
+
+- `sandboxPermissions` says how sensitive the command is
+- `approvalResolver` decides what to do when the host asks for approval
+
+The common pattern is:
+
+- use `useDefault` for ordinary commands
+- use `requireEscalated` when the command is sensitive or likely to need extra approval
+- return `acceptForSession` only when you want the current host process to remember that approval
 
 ## One-off approval example
 
@@ -224,7 +295,7 @@ import { CodexShellAdapter } from '@rien7/codex-sandbox'
 
 const adapter = new CodexShellAdapter({
   hostBinary: '/opt/codex-sandbox/codex-sandbox-host',
-  codexHome: '/tmp/codex-sandbox-home',
+  configPath: '/tmp/codex-sandbox-config',
   bridge: {
     zshBinary: '/opt/codex-sandbox/zsh',
     execveWrapperBinary: '/opt/codex-sandbox/codex-execve-wrapper',
@@ -232,19 +303,26 @@ const adapter = new CodexShellAdapter({
 })
 ```
 
-## Managed `CODEX_HOME`
+## Configuration directory
 
-When bridge assets are available, the adapter writes a managed `config.toml` into `CODEX_HOME` so the shell integration can find:
+`configPath` is the configuration directory used for the native host runtime.
+
+Internally it is passed to the host as `CODEX_HOME`, but you can think of it as “where the adapter-managed host config lives”.
+
+When bridge assets are available, the adapter writes a managed `config.toml` into that directory so the shell integration can find:
 
 - `zsh`
 - `codex-execve-wrapper`
 
 Non-managed configs are left untouched.
 
+If you are only using the high-level adapter API, you usually do not need to
+touch this directory yourself.
+
 Low-level helper:
 
 ```ts
-import { prepareCodexHome } from '@rien7/codex-sandbox'
+import { prepareConfigPath } from '@rien7/codex-sandbox'
 ```
 
 ## Low-level APIs
@@ -258,7 +336,7 @@ Lower-level exports exist when you need them:
 - `resolveNativeHostBinary()`
 - `resolveNativeShellBridge()`
 - `getNativePlatformKey()`
-- `prepareCodexHome()`
+- `prepareConfigPath()`
 
 ## Packaged native layout
 

@@ -1,6 +1,13 @@
 import type { HostApprovalDecision } from './protocol.js'
 
-/** High-level sandbox policy used by the adapter when executing a command. */
+/**
+ * High-level sandbox policy used by the adapter when executing a command.
+ *
+ * This is not an OS-level sandbox setting. It is the request-level policy that
+ * the adapter sends to the native host so the host can decide whether a command
+ * may run with its default handling or whether it should go through an
+ * escalated approval path.
+ */
 export type CodexShellSandboxPermissions = 'useDefault' | 'requireEscalated'
 
 /**
@@ -20,6 +27,10 @@ export type CodexShellApprovalDecision = HostApprovalDecision
  *
  * The resolver may use `command`, `cwd`, `reason`, and `availableDecisions`
  * to decide whether to `accept`, `acceptForSession`, `decline`, or `cancel`.
+ *
+ * This is the low-level "what needs approval?" payload. It is emitted before
+ * the command executes, and it is paired with a separate `approvalId` so the
+ * host can receive exactly one decision for this request.
  */
 export interface CodexShellApprovalRequest {
   itemId: string
@@ -30,7 +41,14 @@ export interface CodexShellApprovalRequest {
   availableDecisions?: CodexShellApprovalDecision[]
 }
 
-/** Context the adapter keeps for the request that triggered an approval prompt. */
+/**
+ * Context the adapter keeps for the request that triggered an approval prompt.
+ *
+ * This is adapter-owned metadata, not a host payload. Right now it mainly tells
+ * you which sandbox policy was used to start the command, so a resolver can
+ * treat `requireEscalated` requests differently from ordinary `useDefault`
+ * requests.
+ */
 export interface CodexShellApprovalContext {
   itemId: string
   sandboxPermissions: CodexShellSandboxPermissions
@@ -39,11 +57,21 @@ export interface CodexShellApprovalContext {
 /**
  * User-provided hook for inline approval decisions.
  *
- * Typical patterns:
- * - return `accept` for one-off approval
- * - return `acceptForSession` to reuse approval for later guarded commands in
- *   the same adapter/host lifetime
- * - return `decline` or `cancel` to stop execution
+ * The adapter calls this after the native host emits an approval request and
+ * before it sends a decision back to the host.
+ *
+ * Use this hook when you want to centralize approval policy in code instead of
+ * asking a human every time. Common examples:
+ *
+ * - allow a known-safe command with `accept`
+ * - allow an escalation once and reuse that approval for the current host
+ *   process with `acceptForSession`
+ * - block patterns like destructive file operations with `decline`
+ * - abort without approval using `cancel`
+ *
+ * The resolver should be treated as a pure policy function. It can inspect the
+ * request and context and return a decision, but it should not assume that the
+ * command has already started executing.
  */
 export type CodexShellApprovalResolver = (
   request: CodexShellApprovalRequest,
@@ -70,7 +98,15 @@ export interface CodexShellExecInput {
   login?: boolean
   /** Shell binary to launch. Defaults to `options.shell`, `$SHELL`, or `/bin/zsh`. */
   shell?: string
-  /** Sandbox policy for the command. Defaults to `useDefault`. */
+  /**
+   * Sandbox policy for the command.
+   *
+   * `useDefault` is the normal path. `requireEscalated` tells the adapter that
+   * this command should be treated as sensitive and may require approval before
+   * the native host runs it.
+   *
+   * Defaults to `useDefault`.
+   */
   sandboxPermissions?: CodexShellSandboxPermissions
 }
 
@@ -107,13 +143,40 @@ export interface CodexShellSessionSnapshot extends CodexShellResult {
   sandboxPermissions: CodexShellSandboxPermissions
 }
 
-/** Optional shell bridge assets used to patch zsh exec behavior. */
+/**
+ * Optional shell bridge assets used to patch shell exec behavior.
+ *
+ * The bridge is the extra native support layer that lets the host resolve and
+ * launch shell commands in the same way the package expects. In practice it may
+ * involve a patched shell binary plus a small exec wrapper so the host can
+ * intercept command startup cleanly.
+ *
+ * You usually do not need to set this manually unless you are pinning custom
+ * native builds, running from a nonstandard layout, or disabling the managed
+ * bridge entirely.
+ */
 export interface CodexShellBridgeOptions {
-  /** Set to `false` to disable bridge setup even if packaged assets are available. */
+  /**
+   * Set to `false` to disable bridge setup even if packaged assets are
+   * available.
+   *
+   * Use this when you want the native host to run without the additional shell
+   * integration layer.
+   */
   enabled?: boolean
-  /** Explicit path to the patched `zsh` binary. */
+  /**
+   * Explicit path to the patched `zsh` binary.
+   *
+   * Provide this when you already built or installed the bridge shell binary
+   * yourself and want the adapter to skip auto-discovery.
+   */
   zshBinary?: string
-  /** Explicit path to the `codex-execve-wrapper` bridge binary. */
+  /**
+   * Explicit path to the `codex-execve-wrapper` bridge binary.
+   *
+   * This wrapper is the helper the host uses to intercept exec calls and route
+   * them through the sandbox-aware command startup path.
+   */
   execveWrapperBinary?: string
 }
 
@@ -127,11 +190,11 @@ export interface CodexShellAdapterOptions {
    */
   hostBinary?: string
   /**
-   * Dedicated `CODEX_HOME` directory.
+   * Dedicated config directory used as `CODEX_HOME` for the native host.
    *
    * Defaults to `~/.codex-sandbox`.
    */
-  codexHome?: string
+  configPath?: string
   /** Default shell binary for commands. */
   shell?: string
   /** Default command working directory and native asset search starting point. */
@@ -152,6 +215,10 @@ export interface CodexShellAdapterOptions {
    *
    * Usually not needed when the package ships native assets or when the host
    * and bridge binaries are built in the repo.
+   *
+   * If you are not sure whether you need this, you probably do not. Leaving it
+   * unset lets the adapter discover packaged assets, repo builds, and system
+   * binaries automatically.
    */
   bridge?: CodexShellBridgeOptions
 }

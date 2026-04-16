@@ -4,8 +4,8 @@ export { CodexShellAdapter, type CodexShellAdapterRuntime } from './adapter.js'
 /** Low-level stdio JSON-RPC client for directly owning one native host process. */
 export { CodexShellHostClient, type CodexShellNativeClient } from './client.js'
 
-/** Low-level helper for preparing a managed CODEX_HOME directory. */
-export { prepareCodexHome } from './codex-home.js'
+/** Low-level helpers for default config path resolution and managed config preparation. */
+export { getDefaultConfigPath, prepareConfigPath } from './config-path.js'
 
 /** Low-level host protocol shapes used by the native JSON-RPC boundary. */
 export type {

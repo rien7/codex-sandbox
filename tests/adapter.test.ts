@@ -25,7 +25,7 @@ describe('@rien7/codex-sandbox', () => {
   it('runs buffered commands through the standalone adapter', async () => {
     const adapter = new CodexShellAdapter({
       hostBinary: createHostWrapper(),
-      codexHome: mkdtempSync(join(tmpdir(), 'codex-sandbox-home-')),
+      configPath: mkdtempSync(join(tmpdir(), 'codex-sandbox-home-')),
     })
 
     try {
@@ -44,7 +44,7 @@ describe('@rien7/codex-sandbox', () => {
   it('keeps interactive sessions open and appends later chunks', async () => {
     const adapter = new CodexShellAdapter({
       hostBinary: createHostWrapper(),
-      codexHome: mkdtempSync(join(tmpdir(), 'codex-sandbox-home-')),
+      configPath: mkdtempSync(join(tmpdir(), 'codex-sandbox-home-')),
     })
 
     try {

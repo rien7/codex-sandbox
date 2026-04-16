@@ -22,7 +22,7 @@ for (const entry of readdirSync(sourceRoot, { withFileTypes: true })) {
   const targetDir = resolve(targetRoot, platformKey)
   mkdirSync(targetDir, { recursive: true })
 
-  for (const assetName of ['codex-sandbox-host', 'codex-execve-wrapper', 'zsh']) {
+  for (const assetName of getExpectedAssetNames(platformKey)) {
     const sourceAsset = resolve(sourceDir, assetName)
     if (existsSync(sourceAsset)) {
       cpSync(sourceAsset, resolve(targetDir, assetName))
@@ -39,3 +39,12 @@ function readFlag(name) {
   return undefined
 }
 
+
+function getExpectedAssetNames(platformKey) {
+  const executableSuffix = platformKey.startsWith('win32-') ? '.exe' : ''
+  return [
+    `codex-sandbox-host${executableSuffix}`,
+    `codex-execve-wrapper${executableSuffix}`,
+    'zsh',
+  ]
+}

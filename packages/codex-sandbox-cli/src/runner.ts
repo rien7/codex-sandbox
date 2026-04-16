@@ -38,7 +38,7 @@ export async function runCli(argv: string[], options: RunCliOptions = {}): Promi
     allowPositionals: true,
     options: {
       cmd: { type: 'string' },
-      'codex-home': { type: 'string' },
+      'config-path': { type: 'string' },
       cwd: { type: 'string' },
       'execve-wrapper-binary': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
@@ -71,7 +71,7 @@ export async function runCli(argv: string[], options: RunCliOptions = {}): Promi
     ...(options.prompt ? { prompt: options.prompt } : {}),
     ...(values.shell ? { shell: values.shell } : {}),
     ...(values['zsh-binary'] ? { zshBinary: values['zsh-binary'] } : {}),
-    ...(values['codex-home'] ? { codexHome: values['codex-home'] } : {}),
+    ...(values['config-path'] ? { configPath: values['config-path'] } : {}),
   }))
 
   try {
@@ -228,7 +228,7 @@ function renderResult(result: CodexShellResult, asJson: boolean, stdout: NodeJS.
 }
 
 function createAdapterOptions(input: {
-  codexHome?: string
+  configPath?: string
   cwd?: string
   env?: NodeJS.ProcessEnv
   execveWrapperBinary?: string
@@ -245,7 +245,7 @@ function createAdapterOptions(input: {
 
   return {
     ...(input.hostBinary ? { hostBinary: input.hostBinary } : {}),
-    ...(input.codexHome ? { codexHome: input.codexHome } : {}),
+    ...(input.configPath ? { configPath: input.configPath } : {}),
     ...(input.shell ? { shell: input.shell } : {}),
     ...(input.cwd ? { cwd: input.cwd } : {}),
     ...(input.env ? { env: input.env } : {}),
@@ -456,7 +456,7 @@ function buildHelpText(): string {
     'Common options:',
     '  --cmd <string>',
     '  --host-binary <path>',
-    '  --codex-home <path>',
+    '  --config-path <path>',
     '  --cwd <path>',
     '  --shell <path>',
     '  --zsh-binary <path>',

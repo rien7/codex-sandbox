@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
 
-import { prepareCodexHome } from './codex-home.js'
+import { prepareConfigPath } from './config-path.js'
 import type {
   HostApprovalRequest,
   HostApprovalResponseParams,
@@ -38,8 +38,8 @@ export interface CodexShellNativeClient {
 export interface CodexShellHostClientOptions {
   /** Absolute or relative path to the host executable. */
   binaryPath: string
-  /** Dedicated `CODEX_HOME` used by the child process. */
-  codexHome: string
+  /** Dedicated config directory used as `CODEX_HOME` for the child process. */
+  configPath: string
   /** Optional bridge asset resolution for managed `config.toml`. */
   bridge?: NativeShellBridgeResolution
   /** Extra argv appended when launching the host. */
@@ -124,8 +124,8 @@ export class CodexShellHostClient implements CodexShellNativeClient {
   }
 
   private async startInternal(): Promise<void> {
-    await prepareCodexHome({
-      codexHome: this.options.codexHome,
+    await prepareConfigPath({
+      configPath: this.options.configPath,
       ...(this.options.bridge ? { bridge: this.options.bridge } : {}),
     })
 
@@ -134,7 +134,7 @@ export class CodexShellHostClient implements CodexShellNativeClient {
       env: {
         ...process.env,
         ...this.options.env,
-        CODEX_HOME: this.options.codexHome,
+        CODEX_HOME: this.options.configPath,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     })

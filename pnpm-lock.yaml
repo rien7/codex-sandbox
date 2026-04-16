@@ -24,7 +24,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/codex-sandbox-adapter
 
-  packages/codex-sandbox-adapter: {}
+  packages/codex-sandbox-adapter:
+    dependencies:
+      env-paths:
+        specifier: ^3.0.0
+        version: 3.0.0
 
   packages/codex-sandbox-cli:
     dependencies:
@@ -214,6 +218,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  env-paths@3.0.0:
+    resolution: {integrity: sha512-dtJUTepzMW3Lm/NPxRf3wP4642UWhjL2sQxc+ym2YMj1m/H2zDNQOlezafzkHwn6sMstjHTwG6iQQsctDW/b1A==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   es-module-lexer@2.0.0:
     resolution: {integrity: sha512-5POEcUuZybH7IdmGsD8wlf0AI55wMecM9rVBTI/qEAy2c1kTOm3DjFYjrBdI2K3BaJjJYfYFeRtM0t9ssnRuxw==}
@@ -619,6 +627,8 @@ snapshots:
   convert-source-map@2.0.0: {}
 
   detect-libc@2.1.2: {}
+
+  env-paths@3.0.0: {}
 
   es-module-lexer@2.0.0: {}
 

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -75,17 +75,17 @@ export function resolveNativeHostBinary(options: {
   const envPath = env.CODEX_SANDBOX_HOST_BINARY
     ?? env.CODEX_SHELL_HOST_BINARY
     ?? env.SHELL_CODEX_BINARY
-  const systemCandidate = resolveSystemBinary(env, 'codex-sandbox-host')
-    ?? resolveSystemBinary(env, 'sandbox-unified-exec-host')
+  const systemCandidate = resolveSystemBinary(env, executableNameForCurrentPlatform('codex-sandbox-host'))
+    ?? resolveSystemBinary(env, executableNameForCurrentPlatform('sandbox-unified-exec-host'))
   const candidates = resolveAssetCandidates({
-    assetName: 'codex-sandbox-host',
+    assetName: executableNameForCurrentPlatform('codex-sandbox-host'),
     ...(options.explicitPath ? { explicitPath: options.explicitPath } : {}),
     ...(envPath ? { envPath } : {}),
     cwd,
     searchRoots,
     repoBuildCandidates: [
       ...searchRoots.map(root => (
-        resolve(root, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host')
+        executablePathForCurrentPlatform(resolve(root, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host'))
       )),
     ],
     ...(systemCandidate ? { systemCandidate } : {}),
@@ -124,15 +124,15 @@ export function resolveNativeShellBridge(options: {
     ?? env.SHELL_CODEX_EXECVE_WRAPPER_BINARY
   const execveWrapperBinary = resolveOptionalAsset(
     resolveAssetCandidates({
-      assetName: 'codex-execve-wrapper',
+      assetName: executableNameForCurrentPlatform('codex-execve-wrapper'),
       ...(options.explicitExecveWrapperPath ? { explicitPath: options.explicitExecveWrapperPath } : {}),
       ...(execveEnvPath ? { envPath: execveEnvPath } : {}),
       cwd,
       searchRoots,
       repoBuildCandidates: [
-        ...(siblingDir ? [resolve(siblingDir, 'codex-execve-wrapper')] : []),
+        ...(siblingDir ? [executablePathForCurrentPlatform(resolve(siblingDir, 'codex-execve-wrapper'))] : []),
         ...searchRoots.map(root => (
-          resolve(root, 'native', 'vendor', 'codex-rs', 'target', 'release', 'codex-execve-wrapper')
+          executablePathForCurrentPlatform(resolve(root, 'native', 'vendor', 'codex-rs', 'target', 'release', 'codex-execve-wrapper'))
         )),
       ],
     }),
@@ -214,16 +214,18 @@ function resolveSystemBinary(
     return undefined
   }
 
-  for (const segment of pathValue.split(':')) {
+  for (const segment of pathValue.split(delimiter)) {
     if (!segment) {
       continue
     }
 
-    const candidate = join(segment, binaryName)
-    if (existsSync(candidate)) {
-      return {
-        binaryPath: candidate,
-        source: 'system',
+    for (const candidateName of getExecutableCandidateNames(binaryName)) {
+      const candidate = join(segment, candidateName)
+      if (existsSync(candidate)) {
+        return {
+          binaryPath: candidate,
+          source: 'system',
+        }
       }
     }
   }
@@ -260,4 +262,30 @@ function dedupeCandidates(
     seen.add(candidate.binaryPath)
     return true
   })
+}
+
+function executableNameForCurrentPlatform(binaryName: string): string {
+  return executableNameForPlatform(binaryName, process.platform)
+}
+
+function executableNameForPlatform(binaryName: string, platform: NodeJS.Platform): string {
+  if (platform === 'win32' && !binaryName.endsWith('.exe')) {
+    return `${binaryName}.exe`
+  }
+
+  return binaryName
+}
+
+function executablePathForCurrentPlatform(binaryPath: string): string {
+  return process.platform === 'win32' && !binaryPath.endsWith('.exe')
+    ? `${binaryPath}.exe`
+    : binaryPath
+}
+
+function getExecutableCandidateNames(binaryName: string): string[] {
+  if (process.platform === 'win32' && !binaryName.endsWith('.exe')) {
+    return [`${binaryName}.exe`, binaryName]
+  }
+
+  return [binaryName]
 }

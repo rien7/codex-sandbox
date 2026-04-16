@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { chmodSync, copyFileSync, existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -14,14 +14,17 @@ const VENDOR_CODEX_RS_DIR = resolve(ROOT_DIR, 'native', 'vendor', 'codex-rs')
 mkdirSync(distNativeDir, { recursive: true })
 mkdirSync(packageNativeDir, { recursive: true })
 
+const hostAssetName = getExecutableAssetName('codex-sandbox-host')
+const execveWrapperAssetName = getExecutableAssetName('codex-execve-wrapper')
+
 const hostBinary = requireAsset(resolveHostBinary(), 'Codex sandbox host binary')
-copyBinary(hostBinary, join(distNativeDir, 'codex-sandbox-host'))
-copyBinary(hostBinary, join(packageNativeDir, 'codex-sandbox-host'))
+copyBinary(hostBinary, join(distNativeDir, hostAssetName))
+copyBinary(hostBinary, join(packageNativeDir, hostAssetName))
 
 const execveWrapperBinary = resolveExecveWrapperBinary(hostBinary)
 if (execveWrapperBinary) {
-  copyBinary(execveWrapperBinary, join(distNativeDir, 'codex-execve-wrapper'))
-  copyBinary(execveWrapperBinary, join(packageNativeDir, 'codex-execve-wrapper'))
+  copyBinary(execveWrapperBinary, join(distNativeDir, execveWrapperAssetName))
+  copyBinary(execveWrapperBinary, join(packageNativeDir, execveWrapperAssetName))
 }
 else {
   console.warn('Bridge asset missing: codex-execve-wrapper')
@@ -40,16 +43,16 @@ function resolveHostBinary() {
   const envBinary = readEnvPath('CODEX_SANDBOX_HOST_BINARY')
   return (
     envBinary
-    || resolveRepoBinary(['native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host'])
-    || resolveSystemBinary('codex-sandbox-host')
-    || resolveSystemBinary('sandbox-unified-exec-host')
+    || resolveRepoBinary(['native', 'sandbox-host', 'target', 'release', getExecutableAssetName('sandbox-unified-exec-host')])
+    || resolveSystemBinary(getExecutableAssetName('codex-sandbox-host'))
+    || resolveSystemBinary(getExecutableAssetName('sandbox-unified-exec-host'))
   )
 }
 
 function resolveExecveWrapperBinary(hostBinary) {
   const envBinary = readEnvPath('CODEX_SANDBOX_EXECVE_WRAPPER_BINARY')
-  const siblingBinary = resolveSiblingBinary(hostBinary, 'codex-execve-wrapper')
-  const repoBinary = resolveRepoBinary(['native', 'vendor', 'codex-rs', 'target', 'release', 'codex-execve-wrapper'])
+  const siblingBinary = resolveSiblingBinary(hostBinary, execveWrapperAssetName)
+  const repoBinary = resolveRepoBinary(['native', 'vendor', 'codex-rs', 'target', 'release', execveWrapperAssetName])
   const tarball = readEnvPath('CODEX_SANDBOX_ZSH_TARBALL')
 
   return (
@@ -168,14 +171,16 @@ function resolveSystemBinary(binaryName) {
     return undefined
   }
 
-  for (const segment of pathValue.split(':')) {
+  for (const segment of pathValue.split(delimiter)) {
     if (!segment) {
       continue
     }
 
-    const candidate = resolve(segment, binaryName)
-    if (existsSync(candidate)) {
-      return candidate
+    for (const candidateName of getExecutableCandidateNames(binaryName)) {
+      const candidate = resolve(segment, candidateName)
+      if (existsSync(candidate)) {
+        return candidate
+      }
     }
   }
 
@@ -202,4 +207,18 @@ function getNativePlatformKey() {
 
 function isErrnoException(error) {
   return error instanceof Error && 'code' in error
+}
+
+function getExecutableAssetName(binaryName) {
+  return process.platform === 'win32' && !binaryName.endsWith('.exe')
+    ? `${binaryName}.exe`
+    : binaryName
+}
+
+function getExecutableCandidateNames(binaryName) {
+  if (process.platform === 'win32' && !binaryName.endsWith('.exe')) {
+    return [`${binaryName}.exe`, binaryName]
+  }
+
+  return [binaryName]
 }

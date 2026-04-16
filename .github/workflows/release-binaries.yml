@@ -19,6 +19,8 @@ jobs:
             platform_key: linux-x64
           - os: macos-14
             platform_key: darwin-arm64
+          - os: windows-2022
+            platform_key: win32-x64
 
     runs-on: ${{ matrix.os }}
 

@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import process from 'node:process'
 
 import type { CodexShellNativeClient } from './client.js'
 import { CodexShellHostClient } from './client.js'
+import { getDefaultConfigPath } from './config-path.js'
 import type {
   HostApprovalRequest,
   HostExecCommandParams,
@@ -188,7 +187,7 @@ export class CodexShellAdapter implements CodexShellAdapterRuntime {
 
     const client = new CodexShellHostClient({
       binaryPath: resolution.hostBinary.binaryPath,
-      codexHome: this.options.codexHome ?? join(homedir(), '.codex-sandbox'),
+      configPath: this.options.configPath ?? getDefaultConfigPath(),
       ...(this.options.bridge?.enabled === false || !resolution.bridge ? {} : { bridge: resolution.bridge }),
       ...(this.options.launchArgs ? { launchArgs: this.options.launchArgs } : {}),
       ...(this.options.cwd ? { cwd: this.options.cwd } : {}),
@@ -308,7 +307,7 @@ function normalizeExecInput(
     ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
     tty: input.tty ?? false,
     login: input.login ?? true,
-    shell: input.shell ?? options.shell ?? process.env.SHELL ?? '/bin/zsh',
+    shell: input.shell ?? options.shell ?? getDefaultShell(),
     sandboxPermissions: input.sandboxPermissions ?? 'useDefault',
   }
 }
@@ -377,4 +376,16 @@ function isDecisionAllowed(
   availableDecisions: CodexShellApprovalDecision[] | undefined,
 ): boolean {
   return !availableDecisions || availableDecisions.includes(decision)
+}
+
+function getDefaultShell(): string {
+  if (process.env.SHELL) {
+    return process.env.SHELL
+  }
+
+  if (process.platform === 'win32') {
+    return process.env.ComSpec ?? 'powershell.exe'
+  }
+
+  return '/bin/zsh'
 }

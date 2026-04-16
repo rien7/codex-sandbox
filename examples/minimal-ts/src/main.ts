@@ -1,11 +1,11 @@
 import { mkdirSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import {
   CodexShellAdapter,
+  getDefaultConfigPath,
   getNativePlatformKey,
   resolveNativeShellBundle,
 } from '@rien7/codex-sandbox'
@@ -15,7 +15,10 @@ const exampleRoot = resolve(runtimeDir, '..')
 const repoRoot = resolve(exampleRoot, '..', '..')
 const platformKey = getNativePlatformKey()
 const workdir = resolve(exampleRoot, 'workspace')
-const defaultCodexHome = resolve(homedir(), '.codex-sandbox')
+const defaultConfigPath = getDefaultConfigPath()
+const hostAssetName = executableNameForPlatformKey('codex-sandbox-host')
+const hostBuildName = executableNameForPlatformKey('sandbox-unified-exec-host')
+const wrapperBuildName = executableNameForPlatformKey('codex-execve-wrapper')
 
 async function main(): Promise<void> {
   mkdirSync(workdir, { recursive: true })
@@ -29,9 +32,9 @@ async function main(): Promise<void> {
     throw new Error([
       'Could not resolve native assets for the example.',
       `Expected one of these to exist for ${platformKey}:`,
-      `- ${resolve(repoRoot, 'packages', 'codex-sandbox-adapter', 'native', platformKey, 'codex-sandbox-host')}`,
-      `- ${resolve(repoRoot, 'dist', 'native', platformKey, 'codex-sandbox-host')}`,
-      `- ${resolve(repoRoot, 'native', 'sandbox-host', 'target', 'release', 'sandbox-unified-exec-host')}`,
+      `- ${resolve(repoRoot, 'packages', 'codex-sandbox-adapter', 'native', platformKey, hostAssetName)}`,
+      `- ${resolve(repoRoot, 'dist', 'native', platformKey, hostAssetName)}`,
+      `- ${resolve(repoRoot, 'native', 'sandbox-host', 'target', 'release', hostBuildName)}`,
       'Or set CODEX_SANDBOX_HOST_BINARY explicitly.',
     ].join('\n'))
   }
@@ -41,12 +44,12 @@ async function main(): Promise<void> {
     exampleRoot,
     platformKey,
     workdir,
-    defaultCodexHome,
+    defaultConfigPath,
     hostBinary: bundle.hostBinary,
     adapterNativeDir: resolve(repoRoot, 'packages', 'codex-sandbox-adapter', 'native', platformKey),
     repoDistNativeDir: resolve(repoRoot, 'dist', 'native', platformKey),
-    repoHostBuildDir: resolve(repoRoot, 'native', 'sandbox-host', 'target', 'release'),
-    repoWrapperBuildDir: resolve(repoRoot, 'native', 'vendor', 'codex-rs', 'target', 'release'),
+    repoHostBuildPath: resolve(repoRoot, 'native', 'sandbox-host', 'target', 'release', hostBuildName),
+    repoWrapperBuildPath: resolve(repoRoot, 'native', 'vendor', 'codex-rs', 'target', 'release', wrapperBuildName),
     envOverrides: {
       host: 'CODEX_SANDBOX_HOST_BINARY=/absolute/path/to/codex-sandbox-host',
       zsh: 'CODEX_SANDBOX_ZSH_BINARY=/absolute/path/to/zsh',
@@ -169,3 +172,9 @@ void main().catch((error) => {
   process.stderr.write(`${message}\n`)
   process.exitCode = 1
 })
+
+function executableNameForPlatformKey(binaryName: string): string {
+  return platformKey.startsWith('win32-') && !binaryName.endsWith('.exe')
+    ? `${binaryName}.exe`
+    : binaryName
+}

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { delimiter, dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -54,16 +54,26 @@ function resolveSystemBinary(binaryName) {
     return undefined
   }
 
-  for (const segment of pathValue.split(':')) {
+  for (const segment of pathValue.split(delimiter)) {
     if (!segment) {
       continue
     }
 
-    const candidate = resolve(segment, binaryName)
-    if (existsSync(candidate)) {
-      return candidate
+    for (const candidateName of getExecutableCandidateNames(binaryName)) {
+      const candidate = resolve(segment, candidateName)
+      if (existsSync(candidate)) {
+        return candidate
+      }
     }
   }
 
   return undefined
+}
+
+function getExecutableCandidateNames(binaryName) {
+  if (process.platform === 'win32' && !binaryName.endsWith('.exe')) {
+    return [`${binaryName}.exe`, binaryName]
+  }
+
+  return [binaryName]
 }

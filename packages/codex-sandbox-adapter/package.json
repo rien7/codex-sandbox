@@ -29,8 +29,11 @@
     "LICENSE",
     "NOTICE"
   ],
+  "dependencies": {
+    "env-paths": "^3.0.0"
+  },
   "scripts": {
-    "build": "pnpm exec tsc -p tsconfig.json",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && pnpm exec tsc -p tsconfig.json",
     "check": "pnpm exec tsc -p tsconfig.json --noEmit"
   }
 }
