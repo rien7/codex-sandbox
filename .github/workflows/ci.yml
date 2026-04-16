@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+          - os: macos-14
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript packages
+        run: pnpm run build:packages
+
+      - name: Run TypeScript checks
+        run: pnpm run check
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Verify native host compiles
+        run: cargo check --manifest-path native/vendor/codex-rs/Cargo.toml -p codex-core --bin elara-unified-exec-host
+
+      - name: Verify execve wrapper compiles
+        run: cargo check --manifest-path native/vendor/codex-rs/Cargo.toml -p codex-shell-escalation --bin codex-execve-wrapper

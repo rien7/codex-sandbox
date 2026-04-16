@@ -1,0 +1,21 @@
+{
+  "name": "codex-sandbox",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Standalone Codex-derived sandbox host, Node adapter, and test CLI",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build:native": "node scripts/build-native.mjs",
+    "sync:native": "node scripts/sync-native-assets.mjs",
+    "build:packages": "pnpm --dir packages/codex-sandbox-adapter build && pnpm --dir packages/codex-sandbox-cli build && pnpm --dir examples/minimal-ts build",
+    "build": "pnpm run build:native && pnpm run sync:native && pnpm run build:packages",
+    "check": "pnpm --dir packages/codex-sandbox-adapter build && pnpm --dir packages/codex-sandbox-cli check && pnpm --dir examples/minimal-ts check",
+    "test": "pnpm run build:packages && vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+.tmp
+*.tgz
+native/vendor/codex-rs/target
+packages/*/dist
+packages/*/native
+examples/*/dist
+ci/native-artifacts

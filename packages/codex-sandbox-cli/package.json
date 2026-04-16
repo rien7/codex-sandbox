@@ -1,0 +1,24 @@
+{
+  "name": "@codex-sandbox/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CLI for testing the Codex-derived sandbox host",
+  "license": "Apache-2.0",
+  "bin": {
+    "codex-sandbox": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "prebuild": "pnpm --dir ../codex-sandbox-adapter build",
+    "precheck": "pnpm --dir ../codex-sandbox-adapter build",
+    "build": "pnpm exec tsc -p tsconfig.json",
+    "check": "pnpm exec tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@codex-sandbox/adapter": "workspace:*"
+  }
+}

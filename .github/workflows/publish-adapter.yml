@@ -1,0 +1,89 @@
+name: publish-adapter
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform_key: linux-x64
+          - os: macos-14
+            platform_key: darwin-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native binaries
+        run: pnpm run build:native
+
+      - name: Sync packaged native assets
+        run: pnpm run sync:native
+
+      - name: Upload adapter native assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: adapter-native-${{ matrix.platform_key }}
+          path: packages/codex-sandbox-adapter/native/${{ matrix.platform_key }}
+
+  publish:
+    needs: build-native
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: adapter-native-*
+          path: ci/native-artifacts
+
+      - name: Stage native assets into the npm package
+        run: node scripts/stage-adapter-native-assets.mjs --source-root ci/native-artifacts
+
+      - name: Build adapter package
+        run: pnpm --dir packages/codex-sandbox-adapter build
+
+      - name: Publish adapter to npm
+        working-directory: packages/codex-sandbox-adapter
+        run: npm publish --provenance --access public

@@ -1,0 +1,23 @@
+{
+  "name": "@codex-sandbox/adapter",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TypeScript adapter for the Codex-derived sandbox host",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "native",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm exec tsc -p tsconfig.json",
+    "check": "pnpm exec tsc -p tsconfig.json --noEmit"
+  }
+}
+

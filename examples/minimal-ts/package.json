@@ -1,0 +1,15 @@
+{
+  "name": "codex-sandbox-example-minimal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prebuild": "pnpm --dir ../../packages/codex-sandbox-adapter build",
+    "precheck": "pnpm --dir ../../packages/codex-sandbox-adapter build",
+    "build": "pnpm exec tsc -p tsconfig.json",
+    "check": "pnpm exec tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@codex-sandbox/adapter": "workspace:*"
+  }
+}
